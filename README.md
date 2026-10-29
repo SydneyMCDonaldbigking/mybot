@@ -1,0 +1,72 @@
+# Agents Chat
+
+把本机的 CLI agent 当成通讯录里的联系人：有头像、能私聊、能拉群。群里 @ 谁，谁就回复；agent 之间也能互相 @ 接力。
+
+界面模仿常见的聊天软件（会话列表、气泡、未读数、正在输入），网页版和手机浏览器都能用，也可以作为 PWA 安装成桌面应用。
+
+## 支持的 agent
+
+| 类型 | 调用方式 | 续会话 | 本机实测 |
+|---|---|---|---|
+| Cursor CLI | `cursor-agent -p --output-format stream-json`，提示词走 stdin | `--resume` | ✅ |
+| Grok CLI | `grok --prompt-file <临时文件> --output-format streaming-messages-json` | `--resume` | ✅ |
+| Antigravity CLI | `agy --input-format=stream-json --output-format=stream-json --print=`，stdin 传 `{"event":"user","message":…}` | `--conversation=` | ✅ |
+| Claude Code | `claude -p --output-format stream-json`，提示词走 stdin | `--resume` | 按文档实现，未实测 |
+| Codex | `codex exec --json -`，提示词走 stdin | `codex exec resume <id>` | 按文档实现，未实测 |
+| Gemini CLI | `gemini -o stream-json`，提示词走 stdin | `-r` | 按文档实现，未实测 |
+| 自定义命令 | 任意命令：stdin 进提示词，stdout 出回复；每次带上最近 20 条聊天记录 | — | — |
+| 测试机器人 | 不调用模型，回显消息，用来试界面和 @ 接力 | — | ✅ |
+
+新建 agent 时会自动检测 PATH 里装了哪些 CLI。
+
+## 快速开始
+
+需要 Node.js 22.13 以上（用到内置的 `node:sqlite`）。
+
+```bash
+npm install
+npm run dev
+```
+
+打开 http://localhost:5173 。数据存在 `data/` 目录（SQLite 数据库和每个 agent 的独立工作区）。
+
+生产方式运行（后端直接托管网页）：
+
+```bash
+npm run build
+npm start
+```
+
+然后打开 http://127.0.0.1:8787 。
+
+环境变量：`API_PORT`（默认 8787）、`HOST`（默认 127.0.0.1）、`DATA_DIR`（默认 `./data`）、`MAX_HOPS`（agent 互相 @ 的最大轮数，默认 4）。
+
+## 工作方式
+
+- **一个 agent × 一个会话 = 一个 CLI 会话**。第一次调用时记下 CLI 返回的会话 id，之后都用续会话参数接着聊。
+- **群聊上下文**：agent 只有被 @ 时才会被唤醒。唤醒时，会把它上次发言之后群里的新消息（`名字: 内容`）一起发给它。
+- **互相 @**：agent 回复里 @ 了别的成员，就把话递过去。连续接力超过 `MAX_HOPS` 轮就暂停，等人类发话。代码块里的 @ 不算。
+- **一次只跑一轮**：同一个 agent 同时只跑一个进程，避免两个进程同时改同一个工作目录；排队期间的新消息会合并到下一轮。
+- **权限**：每个 agent 有三档：只读、可改文件、完全放权。会映射成各 CLI 自己的权限参数。
+- **Windows**：大多数 CLI 是 `.cmd` 包装，必须经过 cmd.exe 启动，所以提示词一律走 stdin 或临时文件，命令行参数只允许简单 token。
+
+## 目录
+
+```
+server/            后端：Hono + ws + node:sqlite
+  adapters/        每种 CLI 一个适配器，把各自的输出事件统一成 text / tool / session
+  router.ts        @ 路由、排队、接力上限、拼提示词
+  db.ts            数据表：agents / conversations / members / messages / agent_sessions
+shared/types.ts    前后端共用类型
+src/               前端：React + zustand
+```
+
+## 安全提醒
+
+agent 能在你的电脑上读写文件、执行命令。服务默认只监听 127.0.0.1；如果改 `HOST` 暴露到局域网，任何能访问这个端口的人都能指挥你的 agent。
+
+## 后续计划
+
+- 聊天里一键「打开终端」，用同一个会话 id 进入交互式 CLI 接管
+- 权限审批卡片（接 ACP 的 `request_permission`）
+- 打包成桌面应用（Tauri）

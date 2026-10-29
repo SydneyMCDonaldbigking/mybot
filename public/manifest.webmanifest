@@ -1,0 +1,13 @@
+{
+  "name": "Agents Chat",
+  "short_name": "Agents Chat",
+  "description": "把 CLI agent 当联系人：私聊、拉群、@ 唤醒",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f0f1f4",
+  "theme_color": "#26282c",
+  "lang": "zh-CN",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
