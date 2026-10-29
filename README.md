@@ -21,6 +21,10 @@
 
 ## 桌面版（Windows）
 
+**直接下载**：到 [Releases](https://github.com/SydneyMCDonaldbigking/mybot/releases/latest) 下载安装版 `AgentsChat-Setup-<版本>.exe` 或便携版 `AgentsChat-Portable-<版本>.exe`。要用哪个 agent，本机就得装好对应的 CLI 并登录。
+
+自己打包：
+
 ```bash
 npm install
 npm run dist
