@@ -39,6 +39,14 @@ export function stopConversation(conversationId: string) {
   for (const r of running.values()) if (r.conversationId === conversationId) r.abort.abort();
 }
 
+/** 退出前停掉所有 agent 进程，等它们把中断状态写回数据库（最多等几秒） */
+export async function stopAll(timeoutMs = 3000) {
+  queues.clear();
+  for (const r of running.values()) r.abort.abort();
+  const until = Date.now() + timeoutMs;
+  while (running.size && Date.now() < until) await new Promise((r) => setTimeout(r, 50));
+}
+
 export function forgetAgent(agentId: string) {
   queues.delete(agentId);
   running.get(agentId)?.abort.abort();
@@ -86,7 +94,7 @@ async function pump(agentId: string) {
 
 function workspaceFor(agent: Agent): string {
   if (agent.cwd) return agent.cwd;
-  const dir = path.join(db.DATA_DIR, 'workspaces', agent.id);
+  const dir = path.join(db.dataDir(), 'workspaces', agent.id);
   mkdirSync(dir, { recursive: true });
   return dir;
 }

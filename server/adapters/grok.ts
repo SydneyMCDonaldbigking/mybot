@@ -4,14 +4,14 @@ import path from 'node:path';
 import type { Adapter } from './types.ts';
 import { binFor, runProcess } from './process.ts';
 import { claudeStreamParser } from './claude.ts';
-import { DATA_DIR } from '../db.ts';
+import { dataDir } from '../db.ts';
 
 // grok 的 -p 只收命令行参数，不读 stdin；多行提示词写进临时文件，用 --prompt-file 传
 // streaming-messages-json 和 Claude Code 的 stream-json 是同一套格式（本机实测：Grok CLI 1.0.62）
 export const grok: Adapter = {
   keepsSession: true,
   async run({ agent, prompt, sessionId, signal, emit }) {
-    const dir = path.join(DATA_DIR, 'tmp');
+    const dir = path.join(dataDir(), 'tmp');
     mkdirSync(dir, { recursive: true });
     const file = path.join(dir, `prompt-${randomUUID()}.txt`);
     writeFileSync(file, prompt, 'utf8');

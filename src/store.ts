@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { Agent, Conversation, Message, Profile, ServerEvent } from '../shared/types.ts';
 import { api, PAGE_SIZE } from './api.ts';
+import { notifyReply } from './desktop.ts';
 
 export type Modal = null | { type: 'agent'; agentId?: string } | { type: 'group' } | { type: 'profile' };
 
@@ -112,6 +113,9 @@ export function applyEvent(e: ServerEvent) {
       putMessage(e.message);
       if (e.message.senderId !== 'me' && e.message.status !== 'streaming' && s.activeId === e.message.conversationId)
         scheduleRead(e.message.conversationId);
+      // 只有 agent 回复结束时的那次 update 才通知，系统提示和中间的工具进度不弹
+      if (e.type === 'message.update' && e.message.status !== 'streaming' && e.message.senderId !== 'system')
+        notifyReply(e.message);
       break;
     case 'message.delta': {
       const list = s.messages[e.conversationId];
@@ -122,10 +126,12 @@ export function applyEvent(e: ServerEvent) {
     case 'conversation.upsert': {
       const c = e.conversation;
       const local = s.conversations[c.id];
-      // 正在看的会话不显示未读；服务端的流式内容可能落后于本地，这时保留本地的 lastMessage
+      // 服务端的流式内容可能落后于本地，这时保留本地的 lastMessage
       const keepLocal = local?.lastMessage?.id === c.lastMessage?.id && local?.lastMessage?.status === 'streaming';
       const lastMessage = keepLocal ? local!.lastMessage : c.lastMessage;
-      set({ conversations: { ...s.conversations, [c.id]: { ...c, lastMessage, unread: s.activeId === c.id ? 0 : c.unread } } });
+      // 正在前台看的会话不显示未读（已读请求马上就会发出去）
+      const watching = s.activeId === c.id && document.visibilityState === 'visible' && document.hasFocus();
+      set({ conversations: { ...s.conversations, [c.id]: { ...c, lastMessage, unread: watching ? 0 : c.unread } } });
       break;
     }
     case 'conversation.delete': {
@@ -158,8 +164,9 @@ export function applyEvent(e: ServerEvent) {
 
 const readTimers = new Map<string, number>();
 
+/** 窗口在前台、正看着这个会话时才算已读；被别的窗口挡住时留着未读，切回来再标 */
 function scheduleRead(id: string) {
-  if (document.visibilityState !== 'visible') return;
+  if (document.visibilityState !== 'visible' || !document.hasFocus()) return;
   clearTimeout(readTimers.get(id));
   readTimers.set(
     id,
@@ -170,10 +177,12 @@ function scheduleRead(id: string) {
   );
 }
 
-document.addEventListener('visibilitychange', () => {
+function readActiveIfUnread() {
   const { activeId, conversations } = get();
   if (activeId && conversations[activeId]?.unread) scheduleRead(activeId);
-});
+}
+document.addEventListener('visibilitychange', readActiveIfUnread);
+window.addEventListener('focus', readActiveIfUnread);
 
 // ---------- 操作 ----------
 

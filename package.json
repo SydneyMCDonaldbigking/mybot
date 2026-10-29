@@ -1,39 +1,80 @@
 {
   "name": "agents-chat-gateway",
+  "productName": "Agents Chat",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "description": "把 CLI agent 当联系人：私聊、拉群、@ 唤醒的通讯应用",
+  "author": "SydneyMCDonaldbigking",
+  "main": "out/main.cjs",
   "scripts": {
     "dev": "concurrently -k -n server,web -c blue,green \"npm:dev:server\" \"npm:dev:web\"",
     "dev:server": "node --watch-path=server --watch-path=shared --import tsx server/index.ts",
     "dev:web": "vite",
     "build": "vite build",
     "start": "node --import tsx server/index.ts",
+    "build:electron": "node scripts/build-electron.mjs",
+    "app": "npm run build && npm run build:electron && electron .",
+    "dist": "npm run build && npm run build:electron && electron-builder --win",
+    "icons": "node scripts/icons.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.server.json --noEmit"
   },
   "engines": {
     "node": ">=22.13"
   },
-  "dependencies": {
-    "@hono/node-server": "^2.1.5",
-    "hono": "^4.13.14",
-    "react": "^19.3.1",
-    "react-dom": "^19.3.1",
-    "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1",
-    "ws": "^8.22.0",
-    "zustand": "^5.0.16"
-  },
   "devDependencies": {
+    "@hono/node-server": "^2.1.5",
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@types/ws": "^8.18.2",
     "@vitejs/plugin-react": "^6.1.2",
     "concurrently": "^10.0.6",
+    "electron": "^45.1.0",
+    "electron-builder": "^26.18.0",
+    "esbuild": "^0.28.2",
+    "hono": "^4.13.14",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "sharp": "^0.35.5",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
-    "vite": "^8.3.5"
+    "vite": "^8.3.5",
+    "ws": "^8.22.0",
+    "zustand": "^5.0.16"
+  },
+  "build": {
+    "appId": "com.agentschat.app",
+    "productName": "Agents Chat",
+    "directories": {
+      "output": "release",
+      "buildResources": "resources"
+    },
+    "files": [
+      "out/**",
+      "dist/**",
+      "resources/**",
+      "package.json",
+      "!**/*.map"
+    ],
+    "win": {
+      "icon": "resources/icon.png",
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "Agents Chat",
+      "artifactName": "AgentsChat-Setup-${version}.exe"
+    },
+    "portable": {
+      "artifactName": "AgentsChat-Portable-${version}.exe"
+    }
   }
 }

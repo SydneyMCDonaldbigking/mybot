@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import type { Conversation } from '../../shared/types.ts';
 import { api } from '../api.ts';
 import { useStore } from '../store.ts';
+import { askNotificationPermission } from '../desktop.ts';
 import { Icon } from '../icons.tsx';
 import { Avatar } from './Avatar.tsx';
 
@@ -64,6 +65,7 @@ export function Composer({ conv }: { conv: Conversation }) {
   const send = async () => {
     const content = text.trim();
     if (!content || sending) return;
+    askNotificationPermission();
     setSending(true);
     setText('');
     setMention(null);

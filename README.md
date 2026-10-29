@@ -2,7 +2,7 @@
 
 把本机的 CLI agent 当成通讯录里的联系人：有头像、能私聊、能拉群。群里 @ 谁，谁就回复；agent 之间也能互相 @ 接力。
 
-界面模仿常见的聊天软件（会话列表、气泡、未读数、正在输入），网页版和手机浏览器都能用，也可以作为 PWA 安装成桌面应用。
+界面模仿常见的聊天软件（会话列表、气泡、未读数、正在输入）。有 Windows 桌面版（Electron），也可以当网页用、在手机浏览器里打开。
 
 ## 支持的 agent
 
@@ -19,7 +19,31 @@
 
 新建 agent 时会自动检测 PATH 里装了哪些 CLI。
 
-## 快速开始
+## 桌面版（Windows）
+
+```bash
+npm install
+npm run dist
+```
+
+在 `release/` 下生成两个文件：
+
+- `AgentsChat-Setup-<版本>.exe`：安装包，可以选安装目录，会建开始菜单和桌面快捷方式
+- `AgentsChat-Portable-<版本>.exe`：免安装，双击就能运行
+
+桌面版在应用进程里直接起后端（随机端口，只监听 127.0.0.1），再用窗口加载界面：
+
+- 关窗口会缩到托盘，agent 继续在后台跑；右键托盘图标 →「退出」才是真正退出，退出时会先停掉还在跑的 agent
+- 有未读消息时任务栏图标会闪烁、显示红点；窗口不在前台时，agent 回复完会弹系统通知，点通知直接跳到那个会话
+- 只能开一个实例，重复打开会唤起已有窗口
+- 数据默认存在 `%APPDATA%\Agents Chat\data`；想放到别处（比如 D 盘），启动前设置环境变量 `DATA_DIR`
+- `F12` 打开开发者工具
+
+不打包、直接用 Electron 跑：`npm run app`。
+
+安装包没有代码签名，第一次运行时 Windows SmartScreen 可能会拦一下，点「更多信息 → 仍要运行」即可。
+
+## 网页版 / 开发
 
 需要 Node.js 22.13 以上（用到内置的 `node:sqlite`）。
 
@@ -54,11 +78,16 @@ npm start
 
 ```
 server/            后端：Hono + ws + node:sqlite
+  app.ts           接口路由和 startServer()，命令行和桌面版共用
+  index.ts         命令行入口（npm run dev / npm start）
   adapters/        每种 CLI 一个适配器，把各自的输出事件统一成 text / tool / session
   router.ts        @ 路由、排队、接力上限、拼提示词
   db.ts            数据表：agents / conversations / members / messages / agent_sessions
+electron/          桌面版主进程（窗口、托盘、通知）和 preload
 shared/types.ts    前后端共用类型
 src/               前端：React + zustand
+scripts/           打包 Electron 主进程、从 icon.svg 生成图标
+resources/         桌面版图标
 ```
 
 ## 安全提醒
@@ -69,4 +98,4 @@ agent 能在你的电脑上读写文件、执行命令。服务默认只监听 1
 
 - 聊天里一键「打开终端」，用同一个会话 id 进入交互式 CLI 接管
 - 权限审批卡片（接 ACP 的 `request_permission`）
-- 打包成桌面应用（Tauri）
+- 桌面版里设置数据目录、开机自启

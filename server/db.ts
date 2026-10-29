@@ -12,11 +12,19 @@ import type {
   ToolEvent,
 } from '../shared/types.ts';
 
-export const DATA_DIR = path.resolve(process.env.DATA_DIR ?? 'data');
-mkdirSync(DATA_DIR, { recursive: true });
+let db: DatabaseSync;
+let dir = '';
 
-const db = new DatabaseSync(path.join(DATA_DIR, 'chat.db'));
-db.exec(`
+/** 数据目录：SQLite 数据库、agent 的独立工作区、临时文件都放这里 */
+export function dataDir(): string {
+  return dir;
+}
+
+export function openDb(dataDirectory: string) {
+  dir = path.resolve(dataDirectory);
+  mkdirSync(dir, { recursive: true });
+  db = new DatabaseSync(path.join(dir, 'chat.db'));
+  db.exec(`
   PRAGMA journal_mode = WAL;
   PRAGMA foreign_keys = ON;
   CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -68,10 +76,15 @@ db.exec(`
   );
 `);
 
-// 上次进程退出时还在输出的消息，标成中断
-db.prepare(`UPDATE messages SET status = 'error', content = content || ? WHERE status = 'streaming'`).run(
-  '\n\n（服务重启，回复中断）',
-);
+  // 上次进程退出时还在输出的消息，标成中断
+  db.prepare(`UPDATE messages SET status = 'error', content = content || ? WHERE status = 'streaming'`).run(
+    '\n\n（服务重启，回复中断）',
+  );
+}
+
+export function closeDb() {
+  db?.close();
+}
 
 type Row = Record<string, any>;
 
